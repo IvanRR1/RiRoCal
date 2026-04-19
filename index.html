@@ -469,19 +469,46 @@ document.getElementById('importFile').onchange=e=>{const f=e.target.files[0];if(
 
 // ── GOOGLE DRIVE ─────────────────────────────────────────────────
 let gapiLoaded=false,gisLoaded=false,tokenClient=null,accessToken=null;
-const DFN='rirocaldata.json',SCOPES='https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file';
+const DFN='rirocaldata.json';
+const SCOPES='openid email profile https://www.googleapis.com/auth/drive.file';
 function getSavedClientId(){return localStorage.getItem(CIK)||'';}
 function getSavedFileId(){return localStorage.getItem(GFK)||'';}
 function initGapi(){if(!getSavedClientId())return;const s1=document.createElement('script');s1.src='https://apis.google.com/js/api.js';s1.onload=()=>{gapi.load('client',async()=>{await gapi.client.init({discoveryDocs:['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']});gapiLoaded=true;});};document.head.appendChild(s1);const s2=document.createElement('script');s2.src='https://accounts.google.com/gsi/client';s2.onload=()=>{tokenClient=google.accounts.oauth2.initTokenClient({client_id:getSavedClientId(),scope:SCOPES,callback:(resp)=>{if(resp.error){setDS('Fehler: '+resp.error,true);return;}accessToken=resp.access_token;gapi.client.setToken({access_token:accessToken});fetchUI();}});gisLoaded=true;};document.head.appendChild(s2);}
 function signOut(){if(accessToken)google.accounts.oauth2.revoke(accessToken,()=>{});accessToken=null;gapi.client.setToken('');document.getElementById('gdriveSignedIn').style.display='none';document.getElementById('gdriveSignedOut').style.display='block';document.getElementById('syncStatus').textContent='☁ Offline';document.getElementById('syncStatus').className='sync-status';document.querySelector('.gdrive-btn').classList.remove('connected');}
-async function fetchUI(){try{const r=await gapi.client.request({path:'https://www.googleapis.com/oauth2/v3/userinfo'});const n=r.result.name||r.result.email||'?';document.getElementById('gdriveUserName').textContent=n;document.getElementById('gdriveSignedOut').style.display='none';document.getElementById('gdriveSignedIn').style.display='block';document.getElementById('syncStatus').textContent='☁ '+n;document.getElementById('syncStatus').className='sync-status ok';document.querySelector('.gdrive-btn').classList.add('connected');}catch{setDS('Anmeldung fehlgeschlagen.',true);}}
+async function fetchUI(){
+  try{
+    const r=await gapi.client.request({path:'https://www.googleapis.com/oauth2/v3/userinfo'});
+    const n=r.result.name||r.result.email||'?';
+    document.getElementById('gdriveUserName').textContent=n;
+    document.getElementById('gdriveSignedOut').style.display='none';
+    document.getElementById('gdriveSignedIn').style.display='block';
+    document.getElementById('syncStatus').textContent='☁ '+n;
+    document.getElementById('syncStatus').className='sync-status ok';
+    document.querySelector('.gdrive-btn').classList.add('connected');
+    setDS('Erfolgreich verbunden.',false);
+  }catch(err){
+    console.error('fetchUI Fehler:',err);
+    setDS('Anmeldung fehlgeschlagen: Userinfo nicht abrufbar.',true);
+  }
+}
 async function saveToDrive(){if(!accessToken){setDSI('Bitte anmelden.',true);return;}setDSI('Speichert...',false);try{const c=JSON.stringify(loadEvents(),null,2);const fid=getSavedFileId();if(fid){await gapi.client.request({path:`https://www.googleapis.com/upload/drive/v3/files/${fid}`,method:'PATCH',params:{uploadType:'media'},body:c});}else{const fm=new FormData();fm.append('metadata',new Blob([JSON.stringify({name:DFN,mimeType:'application/json'})],{type:'application/json'}));fm.append('file',new Blob([c],{type:'application/json'}));const resp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{Authorization:'Bearer '+accessToken},body:fm});const dat=await resp.json();if(dat.id)localStorage.setItem(GFK,dat.id);}setDSI('✓ Gespeichert '+new Date().toLocaleTimeString('de-CH'),false);}catch{setDSI('Fehler.',true);}}
 async function loadFromDrive(){if(!accessToken){setDSI('Bitte anmelden.',true);return;}setDSI('Lädt...',false);try{let fid=getSavedFileId();if(!fid){const r=await gapi.client.drive.files.list({q:`name='${DFN}' and trashed=false`,fields:'files(id)',pageSize:1});const fs=r.result.files;if(!fs||!fs.length){setDSI('Keine Daten.',true);return;}fid=fs[0].id;localStorage.setItem(GFK,fid);}const r=await gapi.client.drive.files.get({fileId:fid,alt:'media'});const imp=typeof r.result==='string'?JSON.parse(r.result):r.result;if(!Array.isArray(imp))throw 0;saveEvents(imp);render();setDSI('✓ '+imp.length+' Termine.',false);}catch{setDSI('Fehler.',true);}}
 function setDS(msg,err){const el=document.getElementById('gdriveStatus');el.textContent=msg;el.className='gdrive-status'+(err?' err':' ok');}
 function setDSI(msg,err){const el=document.getElementById('gdriveStatusIn');el.textContent=msg;el.className='gdrive-status'+(err?' err':' ok');}
 document.getElementById('gdriveBtn').onclick=()=>{if(getSavedClientId())document.getElementById('clientIdInput').value=getSavedClientId();document.getElementById('gdriveOverlay').classList.add('open');};
 document.getElementById('gdriveClose').onclick=()=>document.getElementById('gdriveOverlay').classList.remove('open');
-document.getElementById('gdriveSaveClientId').onclick=()=>{const cid=document.getElementById('clientIdInput').value.trim();if(!cid){setDS('Client ID eingeben.',true);return;}localStorage.setItem(CIK,cid);setDS('Verbinde...',false);initGapi();setTimeout(()=>{if(gapiLoaded&&gisLoaded)tokenClient.requestAccessToken({prompt:''});else setDS('APIs laden... nochmal klicken.',false);},1800);};
+document.getElementById('gdriveSaveClientId').onclick=async()=>{
+  const cid=document.getElementById('clientIdInput').value.trim();
+  if(!cid){setDS('Client ID eingeben.',true);return;}
+  localStorage.setItem(CIK,cid);setDS('Verbinde...',false);
+  if(!gapiLoaded||!gisLoaded||!tokenClient){initGapi();}
+  let tries=0;
+  const waitUntilReady=setInterval(()=>{
+    tries++;
+    if(gapiLoaded&&gisLoaded&&tokenClient){clearInterval(waitUntilReady);tokenClient.requestAccessToken({prompt:'consent'});}
+    else if(tries>20){clearInterval(waitUntilReady);setDS('Google APIs konnten nicht geladen werden.',true);}
+  },300);
+};
 document.getElementById('gdriveSaveBtn').onclick=saveToDrive;
 document.getElementById('gdriveLoadBtn').onclick=loadFromDrive;
 document.getElementById('gdriveSignOutBtn').onclick=signOut;
