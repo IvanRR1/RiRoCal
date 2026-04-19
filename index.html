@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1a1a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="RiRoCal">
+<title>RiRoCal</title>
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22RiRoCal%22%2C%22short_name%22%3A%22RiRoCal%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22theme_color%22%3A%22%231a1a1a%22%2C%22background_color%22%3A%22%23f5f5f5%22%7D">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f5f5;--surface:#fff;--border:#e0e0e0;
+  --text:#1a1a1a;--muted:#888;--today-bg:#fff8e1;--today-border:#f59e0b;
+  --biz:#ef4444;--biz-bg:#fef2f2;--priv:#3b82f6;--priv-bg:#eff6ff;
+  --header-bg:#1a1a1a;--radius:6px;--gdrive:#34a853;
+}
+body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;font-size:14px;min-height:100vh}
+.cal-header{background:var(--header-bg);color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.brand-group{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.brand-name{font-size:19px;font-weight:800;letter-spacing:-.5px;color:#fff;line-height:1}
+.brand-sub{font-size:10px;line-height:1.4}
+.brand-ringel{color:#7ec8f0;font-weight:700}
+.brand-robbe{color:#f0c87e;font-weight:700}
+.nav-group{display:flex;align-items:center;gap:5px}
+.cal-header h1{font-size:13px;font-weight:600;min-width:140px;text-align:center;white-space:nowrap}
+.right-group{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.hbtn{background:rgba(255,255,255,.12);border:none;color:#fff;padding:5px 10px;border-radius:var(--radius);cursor:pointer;font-size:12px;transition:background .15s;white-space:nowrap}
+.hbtn:hover{background:rgba(255,255,255,.25)}
+.hbtn.gdrive-btn{background:rgba(52,168,83,.25)}
+.hbtn.gdrive-btn:hover{background:rgba(52,168,83,.45)}
+.hbtn.gdrive-btn.connected{background:rgba(52,168,83,.5)}
+.toolbar{background:#fff;border-bottom:1px solid var(--border);padding:7px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.view-tabs{display:flex;gap:4px}
+.view-tab{background:none;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:20px;cursor:pointer;font-size:12px;transition:all .15s}
+.view-tab:hover{border-color:#999;color:var(--text)}
+.view-tab.active{background:var(--header-bg);color:#fff;border-color:var(--header-bg)}
+.legend-row{display:flex;gap:12px;align-items:center;font-size:11px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:4px}
+.legend-dot{width:9px;height:9px;border-radius:2px}
+.legend-dot.biz{background:var(--biz)}
+.legend-dot.priv{background:var(--priv)}
+.sync-status{font-size:10px;color:var(--muted)}
+.sync-status.ok{color:var(--gdrive)}
+.setup-notice{background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;margin:10px;font-size:12px;display:flex;align-items:center;gap:8px}
+.setup-notice.hidden{display:none}
+.setup-notice a{color:var(--text);font-weight:600;cursor:pointer;text-decoration:underline}
+
+/* shared event */
+.event{display:flex;align-items:flex-start;gap:4px;padding:3px 5px;border-radius:3px;margin-bottom:2px;border-left:3px solid transparent;font-size:11px;line-height:1.3}
+.event.biz{background:var(--biz-bg);border-left-color:var(--biz)}
+.event.priv{background:var(--priv-bg);border-left-color:var(--priv)}
+.event.done{opacity:.5}
+.event.done .event-title{text-decoration:line-through;color:var(--muted)}
+.event input[type=checkbox]{margin-top:1px;flex-shrink:0;cursor:pointer;accent-color:var(--biz)}
+.event.priv input[type=checkbox]{accent-color:var(--priv)}
+.event-title{flex:1;word-break:break-word}
+.event-actions{display:flex;gap:1px;flex-shrink:0}
+.event-btn{background:none;border:none;cursor:pointer;font-size:10px;padding:0;opacity:.4;line-height:1}
+.event-btn:hover{opacity:1}
+.add-btn{display:block;width:100%;text-align:left;background:none;border:none;color:var(--muted);font-size:10px;padding:2px;cursor:pointer;border-radius:3px;margin-top:3px}
+.add-btn:hover{color:var(--text);background:rgba(0,0,0,.04)}
+
+/* month */
+.month-grid{display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid var(--border);border-left:1px solid var(--border);margin:10px;border-radius:var(--radius);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.weekday-header{background:#f9f9f9;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:6px 4px;text-align:center;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.day-cell{background:var(--surface);border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:5px;min-height:88px;position:relative}
+.day-cell.other-month{background:#fafafa}
+.day-cell.today{background:var(--today-bg)}
+.day-cell.today .day-num{background:var(--today-border);color:#fff;border-radius:50%}
+.day-num{font-size:11px;font-weight:600;margin-bottom:3px;width:20px;height:20px;display:flex;align-items:center;justify-content:center}
+.other-month .day-num{color:#ccc}
+
+/* week */
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid var(--border);border-left:1px solid var(--border);margin:10px;border-radius:var(--radius);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.week-col-header{background:#f9f9f9;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:8px 4px;text-align:center}
+.wch-day{font-size:10px;font-weight:600;text-transform:uppercase;color:var(--muted);letter-spacing:.05em}
+.wch-num{font-size:20px;font-weight:700;margin-top:3px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;margin:4px auto 0}
+.week-col-header.today .wch-num{background:var(--today-border);color:#fff;border-radius:50%}
+.week-col{background:var(--surface);border-right:1px solid var(--border);min-height:200px;padding:6px}
+.week-col.today{background:var(--today-bg)}
+
+/* day */
+.day-view{margin:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden}
+.day-view-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.day-view-header h2{font-size:16px;font-weight:700}
+.day-view-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.day-add-btn{background:var(--header-bg);color:#fff;border:none;padding:7px 14px;border-radius:var(--radius);cursor:pointer;font-size:12px;flex-shrink:0}
+.day-events{padding:12px 16px;min-height:180px}
+.day-events .event{font-size:13px;padding:8px 10px;margin-bottom:6px;border-radius:6px}
+.day-empty{color:var(--muted);font-size:13px;padding:24px 0;text-align:center}
+
+/* year */
+.year-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:10px}
+@media(max-width:700px){.year-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:400px){.year-grid{grid-template-columns:1fr}}
+.mini-month{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px;cursor:pointer;transition:box-shadow .15s;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.mini-month:hover{box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.mini-month h3{font-size:11px;font-weight:700;margin-bottom:6px;text-align:center}
+.mini-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px}
+.mini-dh{font-size:7px;text-align:center;color:var(--muted);font-weight:600;padding-bottom:2px}
+.mini-day{font-size:8px;text-align:center;border-radius:2px;min-height:13px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.mini-day.other-m{color:#ddd}
+.mini-day.today-m{background:var(--today-border);color:#fff;border-radius:50%;width:13px;height:13px;margin:0 auto;font-size:7px}
+.dot-row{display:flex;gap:1px;justify-content:center;margin-top:1px}
+.dot{width:3px;height:3px;border-radius:50%;flex-shrink:0}
+.dot.biz{background:var(--biz)}
+.dot.priv{background:var(--priv)}
+
+/* modal */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center;padding:16px}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:12px;padding:22px;width:100%;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.2)}
+.modal h2{font-size:16px;margin-bottom:14px}
+.modal label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px;margin-top:11px}
+.modal input[type=text],.modal select{width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;outline:none;font-family:inherit}
+.modal input:focus,.modal select:focus{border-color:#888}
+.modal-actions{display:flex;gap:8px;margin-top:18px;justify-content:flex-end}
+.btn-primary{background:var(--header-bg);color:#fff;border:none;padding:8px 16px;border-radius:var(--radius);cursor:pointer;font-size:13px}
+.btn-primary:hover{opacity:.85}
+.btn-danger{background:#ef4444;color:#fff;border:none;padding:8px 16px;border-radius:var(--radius);cursor:pointer;font-size:13px}
+.btn-secondary{background:none;border:1px solid var(--border);color:var(--text);padding:8px 16px;border-radius:var(--radius);cursor:pointer;font-size:13px}
+.btn-secondary:hover{background:var(--bg)}
+.btn-gdrive{background:var(--gdrive);color:#fff;border:none;padding:8px 16px;border-radius:var(--radius);cursor:pointer;font-size:13px;width:100%;margin-top:8px}
+.gdrive-info{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:11px;margin-top:10px;font-size:11px;line-height:1.6}
+.gdrive-info ol{padding-left:15px}
+.gdrive-info li{margin-bottom:3px}
+.gdrive-info code{background:#e5e7eb;padding:1px 4px;border-radius:3px;font-size:10px}
+.gdrive-status{font-size:12px;color:var(--muted);margin-top:7px;text-align:center}
+.gdrive-status.ok{color:var(--gdrive)}
+.gdrive-status.err{color:#ef4444}
+.install-banner{display:none;background:var(--header-bg);color:#fff;padding:9px 14px;font-size:12px;align-items:center;justify-content:space-between;gap:8px}
+.install-banner.show{display:flex}
+.install-banner button{background:#fff;color:var(--header-bg);border:none;padding:5px 11px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;flex-shrink:0}
+@media(max-width:640px){
+  .month-grid,.week-grid{margin:5px}
+  .day-cell{min-height:52px;padding:3px}
+  .event-actions{display:none}
+  .brand-name{font-size:16px}
+  .cal-header h1{min-width:90px;font-size:12px}
+}
+</style>
+</head>
+<body>
+
+<div class="install-banner" id="installBanner">
+  <span>🦭 RiRoCal als App installieren</span>
+  <button id="installBtn">Installieren</button>
+  <button onclick="document.getElementById('installBanner').classList.remove('show')" style="background:transparent;color:#fff;font-weight:400">✕</button>
+</div>
+
+<div class="cal-header">
+  <div class="brand-group">
+    <svg width="40" height="40" viewBox="0 0 48 48" fill="none">
+      <ellipse cx="24" cy="30" rx="16" ry="13" fill="#c8d8e8"/>
+      <ellipse cx="24" cy="30" rx="11" ry="8.5" fill="none" stroke="#9ab0c4" stroke-width="1.2" opacity=".7"/>
+      <ellipse cx="24" cy="30" rx="6.5" ry="5" fill="none" stroke="#9ab0c4" stroke-width="1" opacity=".5"/>
+      <ellipse cx="24" cy="32" rx="8" ry="6" fill="#e8f0f8" opacity=".7"/>
+      <ellipse cx="24" cy="17" rx="10" ry="9" fill="#c8d8e8"/>
+      <ellipse cx="24" cy="17" rx="7" ry="6" fill="none" stroke="#9ab0c4" stroke-width="1" opacity=".5"/>
+      <ellipse cx="24" cy="20" rx="5" ry="3.5" fill="#e8f0f8"/>
+      <ellipse cx="24" cy="18.5" rx="2" ry="1.4" fill="#7a9ab0"/>
+      <ellipse cx="20.5" cy="15.5" rx="2" ry="2.2" fill="#1a1a2e"/>
+      <ellipse cx="27.5" cy="15.5" rx="2" ry="2.2" fill="#1a1a2e"/>
+      <circle cx="21.2" cy="14.8" r=".6" fill="white"/>
+      <circle cx="28.2" cy="14.8" r=".6" fill="white"/>
+      <line x1="19" y1="19.5" x2="13" y2="18.5" stroke="#7a9ab0" stroke-width=".8" stroke-linecap="round"/>
+      <line x1="19" y1="20.5" x2="13" y2="21" stroke="#7a9ab0" stroke-width=".8" stroke-linecap="round"/>
+      <line x1="29" y1="19.5" x2="35" y2="18.5" stroke="#7a9ab0" stroke-width=".8" stroke-linecap="round"/>
+      <line x1="29" y1="20.5" x2="35" y2="21" stroke="#7a9ab0" stroke-width=".8" stroke-linecap="round"/>
+      <ellipse cx="10" cy="33" rx="5" ry="3" fill="#b0c4d8" transform="rotate(-25 10 33)"/>
+      <ellipse cx="38" cy="33" rx="5" ry="3" fill="#b0c4d8" transform="rotate(25 38 33)"/>
+      <ellipse cx="18" cy="42" rx="4" ry="2.2" fill="#b0c4d8" transform="rotate(15 18 42)"/>
+      <ellipse cx="30" cy="42" rx="4" ry="2.2" fill="#b0c4d8" transform="rotate(-15 30 42)"/>
+    </svg>
+    <div>
+      <div class="brand-name">RiRoCal</div>
+      <div class="brand-sub"><span class="brand-ringel">Ringel</span><span class="brand-robbe">Robbe</span></div>
+    </div>
+  </div>
+  <div class="nav-group">
+    <button class="hbtn" id="prevBtn">&#8592;</button>
+    <h1 id="periodTitle"></h1>
+    <button class="hbtn" id="nextBtn">&#8594;</button>
+  </div>
+  <div class="right-group">
+    <button class="hbtn" id="todayBtn">Heute</button>
+    <button class="hbtn" id="exportBtn" title="Export">⬇</button>
+    <button class="hbtn" id="importBtn" title="Import">⬆</button>
+    <button class="hbtn gdrive-btn" id="gdriveBtn" title="Google Drive">☁</button>
+    <input type="file" id="importFile" accept=".json" style="display:none">
+  </div>
+</div>
+
+<div class="toolbar">
+  <div class="view-tabs">
+    <button class="view-tab" data-view="day">Tag</button>
+    <button class="view-tab" data-view="week">Woche</button>
+    <button class="view-tab active" data-view="month">Monat</button>
+    <button class="view-tab" data-view="year">Jahr</button>
+  </div>
+  <div class="legend-row">
+    <div class="legend-item"><div class="legend-dot biz"></div> Geschäftlich</div>
+    <div class="legend-item"><div class="legend-dot priv"></div> Privat</div>
+    <span class="sync-status" id="syncStatus">☁ Offline</span>
+  </div>
+</div>
+
+<div class="setup-notice hidden" id="setupNotice">
+  ⚠️ Für Drive-Sync &amp; App-Install muss RiRoCal gehostet werden. <a id="setupLink">Anleitung</a>
+</div>
+
+<div id="mainContent"></div>
+
+<!-- ADD/EDIT -->
+<div class="overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">Termin hinzufügen</h2>
+    <label>Titel *</label>
+    <input type="text" id="eventTitle" placeholder="z.B. Teammeeting 10:00">
+    <label>Typ</label>
+    <select id="eventType">
+      <option value="business">Geschäftlich</option>
+      <option value="private">Privat</option>
+    </select>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="modalCancel">Abbrechen</button>
+      <button class="btn-primary" id="modalSave">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DELETE -->
+<div class="overlay" id="confirmOverlay">
+  <div class="modal" style="max-width:300px">
+    <h2>Termin löschen?</h2>
+    <p style="color:var(--muted);font-size:13px;margin-top:8px">Kann nicht rückgängig gemacht werden.</p>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="confirmNo">Abbrechen</button>
+      <button class="btn-danger" id="confirmYes">Löschen</button>
+    </div>
+  </div>
+</div>
+
+<!-- GOOGLE DRIVE -->
+<div class="overlay" id="gdriveOverlay">
+  <div class="modal" style="max-width:440px">
+    <h2>☁ Google Drive Sync</h2>
+    <div id="gdriveSignedOut">
+      <div class="gdrive-info">
+        <strong>Einmalig einrichten (~5 Min):</strong>
+        <ol style="margin-top:6px">
+          <li>console.cloud.google.com → Neues Projekt</li>
+          <li>APIs → Google Drive API aktivieren</li>
+          <li>OAuth-Zustimmungsbildschirm → Extern</li>
+          <li>Anmeldedaten → OAuth-Client-ID → Webanwendung</li>
+          <li>Autorisierte JS-Quellen: deine URL eintragen</li>
+          <li>Client-ID unten einfügen &amp; speichern</li>
+        </ol>
+      </div>
+      <label style="display:block;font-size:11px;color:var(--muted);margin-top:12px;margin-bottom:3px">Google OAuth Client ID</label>
+      <input type="text" id="clientIdInput" placeholder="xxxxx.apps.googleusercontent.com">
+      <button class="btn-gdrive" id="gdriveSaveClientId">Speichern &amp; Verbinden</button>
+      <div class="gdrive-status" id="gdriveStatus"></div>
+    </div>
+    <div id="gdriveSignedIn" style="display:none">
+      <p style="font-size:13px;margin-bottom:12px">Verbunden: <strong id="gdriveUserName"></strong></p>
+      <button class="btn-gdrive" id="gdriveSaveBtn" style="margin-bottom:6px">⬆ In Drive speichern</button>
+      <button class="btn-gdrive" id="gdriveLoadBtn" style="background:#1a73e8;margin-bottom:6px">⬇ Aus Drive laden</button>
+      <button class="btn-secondary" id="gdriveSignOutBtn" style="width:100%">Abmelden</button>
+      <div class="gdrive-status" id="gdriveStatusIn"></div>
+    </div>
+    <div class="modal-actions"><button class="btn-secondary" id="gdriveClose">Schliessen</button></div>
+  </div>
+</div>
+
+<!-- SETUP -->
+<div class="overlay" id="setupOverlay">
+  <div class="modal" style="max-width:440px">
+    <h2>Als App installieren</h2>
+    <div class="gdrive-info">
+      <strong>Netlify Drop (einfachste Option):</strong>
+      <ol style="margin-top:6px">
+        <li>app.netlify.com/drop öffnen</li>
+        <li>RiRoCal.html reinziehen → sofort eine URL</li>
+        <li>In Chrome auf Android: Menü → "Zum Startbildschirm"</li>
+      </ol>
+      <br><strong>GitHub Pages:</strong>
+      <ol style="margin-top:6px">
+        <li>github.com → Neues Repo → Datei hochladen als <code>index.html</code></li>
+        <li>Settings → Pages → Branch: main → Save</li>
+        <li>URL: <code>deinname.github.io/reponame</code></li>
+      </ol>
+    </div>
+    <div class="modal-actions"><button class="btn-primary" id="setupClose">Verstanden</button></div>
+  </div>
+</div>
+
+<script>
+// ── DATA ─────────────────────────────────────────────────────────
+const SK='business_private_calendar_v2',CIK='rirocalClientId',GFK='rirocalDriveFileId';
+function loadEvents(){try{return JSON.parse(localStorage.getItem(SK))||[];}catch{return[];}}
+function saveEvents(ev){localStorage.setItem(SK,JSON.stringify(ev));}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+function dateStr(d){return d.toISOString().slice(0,10);}
+function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+
+// ── SEED ─────────────────────────────────────────────────────────
+(()=>{if(loadEvents().length)return;const t=new Date();t.setHours(0,0,0,0);
+saveEvents([{id:uid(),date:dateStr(addDays(t,1)),title:'Projektbesprechung 14:00',type:'business',completed:false},{id:uid(),date:dateStr(addDays(t,2)),title:'Zahnarzt 09:30',type:'private',completed:false},{id:uid(),date:dateStr(addDays(t,3)),title:'Angebot erstellen',type:'business',completed:false},{id:uid(),date:dateStr(addDays(t,9)),title:'Geburtstagsparty',type:'private',completed:false},{id:uid(),date:dateStr(t),title:'Abgeschlossene Aufgabe',type:'business',completed:true}]);})();
+
+// ── STATE ────────────────────────────────────────────────────────
+const MONTHS=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const DS=['Mo','Di','Mi','Do','Fr','Sa','So'];
+const DL=['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+let currentView='month';
+let currentDate=new Date();currentDate.setHours(0,0,0,0);
+let editingId=null,pendingAddDate=null,pendingDeleteId=null;
+
+// ── NAV ──────────────────────────────────────────────────────────
+function navigate(dir){
+  const d=new Date(currentDate);
+  if(currentView==='day')d.setDate(d.getDate()+dir);
+  else if(currentView==='week')d.setDate(d.getDate()+dir*7);
+  else if(currentView==='month')d.setMonth(d.getMonth()+dir);
+  else if(currentView==='year')d.setFullYear(d.getFullYear()+dir);
+  currentDate=d;render();
+}
+document.getElementById('prevBtn').onclick=()=>navigate(-1);
+document.getElementById('nextBtn').onclick=()=>navigate(1);
+document.getElementById('todayBtn').onclick=()=>{currentDate=new Date();currentDate.setHours(0,0,0,0);render();};
+document.querySelectorAll('.view-tab').forEach(b=>{b.onclick=()=>{currentView=b.dataset.view;document.querySelectorAll('.view-tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');render();};});
+
+// ── HELPERS ──────────────────────────────────────────────────────
+function getMonday(d){const r=new Date(d);r.setDate(r.getDate()-((r.getDay()+6)%7));return r;}
+
+function updateTitle(){
+  let t='';
+  if(currentView==='month')t=MONTHS[currentDate.getMonth()]+' '+currentDate.getFullYear();
+  else if(currentView==='year')t=''+currentDate.getFullYear();
+  else if(currentView==='day'){const wd=DL[(currentDate.getDay()+6)%7];t=wd+', '+currentDate.getDate()+'. '+MONTHS[currentDate.getMonth()].slice(0,3)+'. '+currentDate.getFullYear();}
+  else if(currentView==='week'){const mon=getMonday(currentDate),sun=addDays(mon,6);t=mon.getDate()+'. – '+sun.getDate()+'. '+MONTHS[mon.getMonth()].slice(0,3)+' '+mon.getFullYear();}
+  document.getElementById('periodTitle').textContent=t;
+}
+
+function render(){updateTitle();const mc=document.getElementById('mainContent');mc.innerHTML='';if(currentView==='month')renderMonth(mc);else if(currentView==='week')renderWeek(mc);else if(currentView==='day')renderDay(mc);else if(currentView==='year')renderYear(mc);}
+
+// ── MONTH ────────────────────────────────────────────────────────
+function renderMonth(mc){
+  const grid=document.createElement('div');grid.className='month-grid';mc.appendChild(grid);
+  const today=new Date();today.setHours(0,0,0,0);
+  const ev=loadEvents();
+  const y=currentDate.getFullYear(),m=currentDate.getMonth();
+  const firstDay=new Date(y,m,1),lastDay=new Date(y,m+1,0);
+  DS.forEach(d=>{const h=document.createElement('div');h.className='weekday-header';h.textContent=d;grid.appendChild(h);});
+  const sd=(firstDay.getDay()+6)%7;
+  for(let i=0;i<sd;i++){const d=new Date(firstDay);d.setDate(d.getDate()-(sd-i));grid.appendChild(mkCell(d,ev,true,today));}
+  for(let d=1;d<=lastDay.getDate();d++)grid.appendChild(mkCell(new Date(y,m,d),ev,false,today));
+  const tot=sd+lastDay.getDate(),rem=tot%7===0?0:7-(tot%7);
+  for(let i=1;i<=rem;i++){const d=new Date(lastDay);d.setDate(d.getDate()+i);grid.appendChild(mkCell(d,ev,true,today));}
+}
+function mkCell(date,events,other,today){
+  const ds=dateStr(date);
+  const c=document.createElement('div');c.className='day-cell'+(other?' other-month':'')+(date.getTime()===today.getTime()?' today':'');
+  const n=document.createElement('div');n.className='day-num';n.textContent=date.getDate();c.appendChild(n);
+  events.filter(e=>e.date===ds).forEach(ev=>c.appendChild(mkEvent(ev)));
+  const ab=document.createElement('button');ab.className='add-btn';ab.textContent='+ Termin';ab.dataset.date=ds;c.appendChild(ab);
+  return c;
+}
+
+// ── WEEK ─────────────────────────────────────────────────────────
+function renderWeek(mc){
+  const grid=document.createElement('div');grid.className='week-grid';mc.appendChild(grid);
+  const today=new Date();today.setHours(0,0,0,0);
+  const ev=loadEvents();
+  const mon=getMonday(currentDate);
+  for(let i=0;i<7;i++){const d=addDays(mon,i),isT=d.getTime()===today.getTime();const h=document.createElement('div');h.className='week-col-header'+(isT?' today':'');h.innerHTML=`<div class="wch-day">${DS[i]}</div><div class="wch-num">${d.getDate()}</div>`;grid.appendChild(h);}
+  for(let i=0;i<7;i++){const d=addDays(mon,i),ds=dateStr(d),isT=d.getTime()===today.getTime();const col=document.createElement('div');col.className='week-col'+(isT?' today':'');ev.filter(e=>e.date===ds).forEach(e=>col.appendChild(mkEvent(e)));const ab=document.createElement('button');ab.className='add-btn';ab.textContent='+ Termin';ab.dataset.date=ds;col.appendChild(ab);grid.appendChild(col);}
+}
+
+// ── DAY ──────────────────────────────────────────────────────────
+function renderDay(mc){
+  const today=new Date();today.setHours(0,0,0,0);
+  const isT=currentDate.getTime()===today.getTime();
+  const ds=dateStr(currentDate);
+  const ev=loadEvents().filter(e=>e.date===ds);
+  const wd=DL[(currentDate.getDay()+6)%7];
+  const wrap=document.createElement('div');wrap.className='day-view';
+  const hdr=document.createElement('div');hdr.className='day-view-header';
+  const info=document.createElement('div');
+  info.innerHTML=`<h2>${wd}, ${currentDate.getDate()}. ${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}</h2><div class="day-view-sub">${isT?'Heute · ':''} ${ev.length?ev.length+' Termin'+(ev.length>1?'e':''):'Keine Termine'}</div>`;
+  hdr.appendChild(info);
+  const ab=document.createElement('button');ab.className='day-add-btn';ab.textContent='+ Termin';ab.dataset.date=ds;ab.onclick=()=>openAdd(ds);
+  hdr.appendChild(ab);wrap.appendChild(hdr);
+  const ew=document.createElement('div');ew.className='day-events';
+  if(!ev.length){const em=document.createElement('div');em.className='day-empty';em.textContent='Keine Termine für diesen Tag.';ew.appendChild(em);}
+  else{
+    // sort: undone first, then done
+    [...ev].sort((a,b)=>a.completed===b.completed?0:a.completed?1:-1).forEach(e=>{const el=mkEvent(e);el.style.fontSize='13px';el.style.padding='9px 11px';el.style.marginBottom='7px';el.style.borderRadius='7px';ew.appendChild(el);});
+  }
+  wrap.appendChild(ew);mc.appendChild(wrap);
+}
+
+// ── YEAR ─────────────────────────────────────────────────────────
+function renderYear(mc){
+  const grid=document.createElement('div');grid.className='year-grid';mc.appendChild(grid);
+  const today=new Date();today.setHours(0,0,0,0);
+  const ev=loadEvents();const yr=currentDate.getFullYear();
+  for(let m=0;m<12;m++){
+    const mm=document.createElement('div');mm.className='mini-month';mm.innerHTML=`<h3>${MONTHS[m]}</h3>`;
+    const mg=document.createElement('div');mg.className='mini-grid';
+    DS.forEach(d=>{const h=document.createElement('div');h.className='mini-dh';h.textContent=d[0];mg.appendChild(h);});
+    const fd=new Date(yr,m,1),ld=new Date(yr,m+1,0);
+    const sd=(fd.getDay()+6)%7;
+    for(let i=0;i<sd;i++){const c=document.createElement('div');c.className='mini-day other-m';mg.appendChild(c);}
+    for(let d=1;d<=ld.getDate();d++){
+      const dt=new Date(yr,m,d),ds=dateStr(dt),isT=dt.getTime()===today.getTime();
+      const de=ev.filter(e=>e.date===ds);
+      const c=document.createElement('div');c.className='mini-day'+(isT?' today-m':'');
+      if(!isT)c.textContent=d;
+      if(de.length&&!isT){const dr=document.createElement('div');dr.className='dot-row';de.slice(0,3).forEach(e=>{const dot=document.createElement('div');dot.className='dot '+(e.type==='business'?'biz':'priv');dr.appendChild(dot);});c.appendChild(dr);c.title=de.map(x=>x.title).join(', ');}
+      mg.appendChild(c);
+    }
+    const tot=sd+ld.getDate(),rem=tot%7===0?0:7-(tot%7);
+    for(let i=0;i<rem;i++){const c=document.createElement('div');c.className='mini-day other-m';mg.appendChild(c);}
+    mm.appendChild(mg);
+    mm.onclick=()=>{currentDate=new Date(yr,m,today.getFullYear()===yr&&today.getMonth()===m?today.getDate():1);currentView='month';document.querySelectorAll('.view-tab').forEach(b=>b.classList.remove('active'));document.querySelector('[data-view="month"]').classList.add('active');render();};
+    grid.appendChild(mm);
+  }
+}
+
+// ── EVENT ELEMENT ────────────────────────────────────────────────
+function mkEvent(ev){
+  const d=document.createElement('div');d.className=`event ${ev.type==='business'?'biz':'priv'}${ev.completed?' done':''}`;
+  const cb=document.createElement('input');cb.type='checkbox';cb.checked=ev.completed;cb.dataset.action='toggle';cb.dataset.id=ev.id;d.appendChild(cb);
+  const t=document.createElement('span');t.className='event-title';t.textContent=ev.title;d.appendChild(t);
+  const ac=document.createElement('div');ac.className='event-actions';
+  const eb=document.createElement('button');eb.className='event-btn';eb.textContent='✏️';eb.dataset.action='edit';eb.dataset.id=ev.id;ac.appendChild(eb);
+  const db=document.createElement('button');db.className='event-btn';db.textContent='🗑️';db.dataset.action='delete';db.dataset.id=ev.id;ac.appendChild(db);
+  d.appendChild(ac);return d;
+}
+
+// ── EVENT DELEGATION ─────────────────────────────────────────────
+document.getElementById('mainContent').addEventListener('click',e=>{
+  const a=e.target.dataset.action;
+  if(a==='toggle'){const ev=loadEvents();const f=ev.find(x=>x.id===e.target.dataset.id);if(f){f.completed=!f.completed;saveEvents(ev);render();}}
+  else if(a==='edit')openEdit(e.target.dataset.id);
+  else if(a==='delete'){pendingDeleteId=e.target.dataset.id;document.getElementById('confirmOverlay').classList.add('open');}
+  else if(e.target.classList.contains('add-btn'))openAdd(e.target.dataset.date);
+});
+
+// ── MODAL ────────────────────────────────────────────────────────
+function openAdd(date){pendingAddDate=date;editingId=null;document.getElementById('modalTitle').textContent='Termin hinzufügen';document.getElementById('eventTitle').value='';document.getElementById('eventType').value='business';document.getElementById('modalOverlay').classList.add('open');setTimeout(()=>document.getElementById('eventTitle').focus(),80);}
+function openEdit(id){const ev=loadEvents();const f=ev.find(x=>x.id===id);if(!f)return;editingId=id;pendingAddDate=null;document.getElementById('modalTitle').textContent='Termin bearbeiten';document.getElementById('eventTitle').value=f.title;document.getElementById('eventType').value=f.type;document.getElementById('modalOverlay').classList.add('open');setTimeout(()=>document.getElementById('eventTitle').focus(),80);}
+document.getElementById('modalSave').onclick=()=>{const title=document.getElementById('eventTitle').value.trim();if(!title){document.getElementById('eventTitle').focus();return;}const type=document.getElementById('eventType').value;const ev=loadEvents();if(editingId){const f=ev.find(x=>x.id===editingId);if(f){f.title=title;f.type=type;}}else ev.push({id:uid(),date:pendingAddDate,title,type,completed:false});saveEvents(ev);document.getElementById('modalOverlay').classList.remove('open');render();};
+document.getElementById('modalCancel').onclick=()=>document.getElementById('modalOverlay').classList.remove('open');
+document.getElementById('eventTitle').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('modalSave').click();});
+document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('modalOverlay'))document.getElementById('modalOverlay').classList.remove('open');});
+document.getElementById('confirmYes').onclick=()=>{if(pendingDeleteId){let ev=loadEvents();ev=ev.filter(x=>x.id!==pendingDeleteId);saveEvents(ev);pendingDeleteId=null;document.getElementById('confirmOverlay').classList.remove('open');render();}};
+document.getElementById('confirmNo').onclick=()=>{document.getElementById('confirmOverlay').classList.remove('open');pendingDeleteId=null;};
+
+// ── EXPORT / IMPORT ──────────────────────────────────────────────
+document.getElementById('exportBtn').onclick=()=>{const bl=new Blob([JSON.stringify(loadEvents(),null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='rirocaldata-'+new Date().toISOString().slice(0,10)+'.json';a.click();};
+document.getElementById('importBtn').onclick=()=>document.getElementById('importFile').click();
+document.getElementById('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const imp=JSON.parse(ev.target.result);if(!Array.isArray(imp))throw 0;const ex=loadEvents();const ids=new Set(ex.map(x=>x.id));saveEvents([...ex,...imp.filter(x=>!ids.has(x.id))]);render();alert('Import: '+imp.length+' Termine.');}catch{alert('Fehler.');}e.target.value='';};r.readAsText(f);};
+
+// ── GOOGLE DRIVE ─────────────────────────────────────────────────
+let gapiLoaded=false,gisLoaded=false,tokenClient=null,accessToken=null;
+const DFN='rirocaldata.json',SCOPES='https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file';
+function getSavedClientId(){return localStorage.getItem(CIK)||'';}
+function getSavedFileId(){return localStorage.getItem(GFK)||'';}
+function initGapi(){if(!getSavedClientId())return;const s1=document.createElement('script');s1.src='https://apis.google.com/js/api.js';s1.onload=()=>{gapi.load('client',async()=>{await gapi.client.init({discoveryDocs:['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']});gapiLoaded=true;});};document.head.appendChild(s1);const s2=document.createElement('script');s2.src='https://accounts.google.com/gsi/client';s2.onload=()=>{tokenClient=google.accounts.oauth2.initTokenClient({client_id:getSavedClientId(),scope:SCOPES,callback:(resp)=>{if(resp.error){setDS('Fehler: '+resp.error,true);return;}accessToken=resp.access_token;gapi.client.setToken({access_token:accessToken});fetchUI();}});gisLoaded=true;};document.head.appendChild(s2);}
+function signOut(){if(accessToken)google.accounts.oauth2.revoke(accessToken,()=>{});accessToken=null;gapi.client.setToken('');document.getElementById('gdriveSignedIn').style.display='none';document.getElementById('gdriveSignedOut').style.display='block';document.getElementById('syncStatus').textContent='☁ Offline';document.getElementById('syncStatus').className='sync-status';document.querySelector('.gdrive-btn').classList.remove('connected');}
+async function fetchUI(){try{const r=await gapi.client.request({path:'https://www.googleapis.com/oauth2/v3/userinfo'});const n=r.result.name||r.result.email||'?';document.getElementById('gdriveUserName').textContent=n;document.getElementById('gdriveSignedOut').style.display='none';document.getElementById('gdriveSignedIn').style.display='block';document.getElementById('syncStatus').textContent='☁ '+n;document.getElementById('syncStatus').className='sync-status ok';document.querySelector('.gdrive-btn').classList.add('connected');}catch{setDS('Anmeldung fehlgeschlagen.',true);}}
+async function saveToDrive(){if(!accessToken){setDSI('Bitte anmelden.',true);return;}setDSI('Speichert...',false);try{const c=JSON.stringify(loadEvents(),null,2);const fid=getSavedFileId();if(fid){await gapi.client.request({path:`https://www.googleapis.com/upload/drive/v3/files/${fid}`,method:'PATCH',params:{uploadType:'media'},body:c});}else{const fm=new FormData();fm.append('metadata',new Blob([JSON.stringify({name:DFN,mimeType:'application/json'})],{type:'application/json'}));fm.append('file',new Blob([c],{type:'application/json'}));const resp=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{Authorization:'Bearer '+accessToken},body:fm});const dat=await resp.json();if(dat.id)localStorage.setItem(GFK,dat.id);}setDSI('✓ Gespeichert '+new Date().toLocaleTimeString('de-CH'),false);}catch{setDSI('Fehler.',true);}}
+async function loadFromDrive(){if(!accessToken){setDSI('Bitte anmelden.',true);return;}setDSI('Lädt...',false);try{let fid=getSavedFileId();if(!fid){const r=await gapi.client.drive.files.list({q:`name='${DFN}' and trashed=false`,fields:'files(id)',pageSize:1});const fs=r.result.files;if(!fs||!fs.length){setDSI('Keine Daten.',true);return;}fid=fs[0].id;localStorage.setItem(GFK,fid);}const r=await gapi.client.drive.files.get({fileId:fid,alt:'media'});const imp=typeof r.result==='string'?JSON.parse(r.result):r.result;if(!Array.isArray(imp))throw 0;saveEvents(imp);render();setDSI('✓ '+imp.length+' Termine.',false);}catch{setDSI('Fehler.',true);}}
+function setDS(msg,err){const el=document.getElementById('gdriveStatus');el.textContent=msg;el.className='gdrive-status'+(err?' err':' ok');}
+function setDSI(msg,err){const el=document.getElementById('gdriveStatusIn');el.textContent=msg;el.className='gdrive-status'+(err?' err':' ok');}
+document.getElementById('gdriveBtn').onclick=()=>{if(getSavedClientId())document.getElementById('clientIdInput').value=getSavedClientId();document.getElementById('gdriveOverlay').classList.add('open');};
+document.getElementById('gdriveClose').onclick=()=>document.getElementById('gdriveOverlay').classList.remove('open');
+document.getElementById('gdriveSaveClientId').onclick=()=>{const cid=document.getElementById('clientIdInput').value.trim();if(!cid){setDS('Client ID eingeben.',true);return;}localStorage.setItem(CIK,cid);setDS('Verbinde...',false);initGapi();setTimeout(()=>{if(gapiLoaded&&gisLoaded)tokenClient.requestAccessToken({prompt:''});else setDS('APIs laden... nochmal klicken.',false);},1800);};
+document.getElementById('gdriveSaveBtn').onclick=saveToDrive;
+document.getElementById('gdriveLoadBtn').onclick=loadFromDrive;
+document.getElementById('gdriveSignOutBtn').onclick=signOut;
+
+// ── PWA ───────────────────────────────────────────────────────────
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;document.getElementById('installBanner').classList.add('show');});
+document.getElementById('installBtn').onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;document.getElementById('installBanner').classList.remove('show');};
+if(location.protocol==='file:')document.getElementById('setupNotice').classList.remove('hidden');
+document.getElementById('setupLink').onclick=()=>document.getElementById('setupOverlay').classList.add('open');
+document.getElementById('setupClose').onclick=()=>document.getElementById('setupOverlay').classList.remove('open');
+if('serviceWorker'in navigator&&location.protocol!=='file:'){const swc=`const C='rv1';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(clients.claim()));self.addEventListener('fetch',e=>e.respondWith(caches.open(C).then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(rs=>{c.put(e.request,rs.clone());return rs;})))));`;const bl=new Blob([swc],{type:'text/javascript'});navigator.serviceWorker.register(URL.createObjectURL(bl)).catch(()=>{});}
+
+// ── INIT ─────────────────────────────────────────────────────────
+if(getSavedClientId())initGapi();
+render();
+</script>
+</body>
+</html>
