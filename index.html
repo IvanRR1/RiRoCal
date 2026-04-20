@@ -518,16 +518,35 @@ function scheduleAutoSync(){
 function initGapi(){
   if(!getSavedClientId())return;
   const s1=document.createElement('script');s1.src='https://apis.google.com/js/api.js';
-  s1.onload=()=>{gapi.load('client',async()=>{await gapi.client.init({discoveryDocs:['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']});gapiLoaded=true;});};
+  s1.onload=()=>{gapi.load('client',async()=>{await gapi.client.init({discoveryDocs:['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']});gapiLoaded=true;tryAutoLogin();});};
   document.head.appendChild(s1);
   const s2=document.createElement('script');s2.src='https://accounts.google.com/gsi/client';
-  s2.onload=()=>{tokenClient=google.accounts.oauth2.initTokenClient({client_id:getSavedClientId(),scope:SCOPES,callback:(resp)=>{if(resp.error){setDS('Fehler: '+resp.error,true);return;}accessToken=resp.access_token;gapi.client.setToken({access_token:accessToken});fetchUI();}});gisLoaded=true;};
+  s2.onload=()=>{
+    tokenClient=google.accounts.oauth2.initTokenClient({
+      client_id:getSavedClientId(),scope:SCOPES,
+      callback:(resp)=>{
+        if(resp.error){return;}
+        accessToken=resp.access_token;
+        gapi.client.setToken({access_token:accessToken});
+        fetchUI();
+      }
+    });
+    gisLoaded=true;
+    tryAutoLogin();
+  };
   document.head.appendChild(s2);
+}
+
+// Stiller Auto-Login beim Seitenstart – kein Dialog wenn schon angemeldet gewesen
+function tryAutoLogin(){
+  if(!gapiLoaded||!gisLoaded||!tokenClient)return;
+  if(!localStorage.getItem('rirocalAutoConnect'))return;
+  tokenClient.requestAccessToken({prompt:''});
 }
 
 function signOut(){
   if(accessToken)google.accounts.oauth2.revoke(accessToken,()=>{});
-  accessToken=null;gapi.client.setToken('');
+  accessToken=null;gapi.client.setToken('');localStorage.removeItem('rirocalAutoConnect');
   document.getElementById('gdriveSignedIn').style.display='none';
   document.getElementById('gdriveSignedOut').style.display='block';
   document.getElementById('syncStatus').textContent='☁ Offline';
@@ -546,6 +565,7 @@ async function fetchUI(){
     document.getElementById('syncStatus').className='sync-status ok';
     document.querySelector('.gdrive-btn').classList.add('connected');
     setDS('Erfolgreich verbunden.',false);
+    localStorage.setItem('rirocalAutoConnect','1'); // merken für Auto-Login
     // Auto-load on connect
     await loadFromDrive(true);
   }catch(err){
